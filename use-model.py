@@ -1,22 +1,18 @@
 import json
 import requests
-import os
 import random
-import ioutil
 import logging
-import logrus
 import urllib
 import yaml
 import telethon
 from telethon import TelegramClient
-from telethon.tl.types import PeerChannel
 import asyncio
 from telethon.tl.functions.channels import JoinChannelRequest
-import time
 import tensorflow as tf
-from tensorflow import keras
 import numpy as np
 from tensorflow.keras.models import load_model
+import time
+import threading
 
 class Records:
     def __init__(self, id, created_at, color, roll):
@@ -31,8 +27,9 @@ class TotalPages:
         self.records = records
 
 game_num = []
-game_color = []
 actions = [0, 1, 2, 3]
+previous_payload = None
+stream = 0
 
 def read_config(file):
     with open(file, 'r') as stream:
@@ -57,31 +54,25 @@ model.q_network = tf.keras.models.load_model(MODEL_PATH)
 model.target_network = tf.keras.models.load_model(MODEL_PATH)
 
 def getBlazeData():
-    colors = []
+    global previous_payload
     data = requests.get(BLAZE)
     if data.status_code != 200:
         raise Exception("Error getting data from blaze.com")
     result = TotalPages(0, [])
     result = json.loads(data.text)
+    payload = json.dumps(result["records"][:20])
+    if payload == previous_payload:
+        return None
+    previous_payload = payload
     for i, v in enumerate(result["records"]):
         if i == 20:
             break
         num = int(v["roll"])
-        color = v["color"]
-        if color == "green":
-            color = "white"
-        colors.append(color)
         game_num.append(num)
-        game_color.append(color)
-    colors = list(reversed(colors))
     game_num.reverse()
-    game_color.reverse()
-    return colors
+    return 1
 
 def predict():
-    data = getBlazeData()
-    if data is None:
-        return
     state = []
     for i in range(len(game_num)):
         state = game_num[max(0, i-19):i+1]
@@ -94,9 +85,8 @@ def predict():
         return random.choice(actions)
     q_values = model.q_network.predict(state)
     action = np.argmax(q_values[0])
-    print(f'Color: {game_color[i]}, Predict: {actions[action]}')
+    print(f'Predict: {actions[action]}')
     state = []
-    game_color.clear()
     game_num.clear()
     return action
 
@@ -110,7 +100,9 @@ def send_message_to_telegram_channel(text):
     elif text == 0:
         message = "A próxima jogada é ⚪"
     elif text == 3:
-        message = "Não sou capaz de prever a próxima jogada"
+        message = "👨🏼‍💻 Não sou capaz de prever a próxima jogada 🤖"
+    elif text is None:
+        message = "👨🏼‍💻 Não há novas jogadas 🤖"
 
     encoded_message = urllib.parse.quote(message)
     url = "https://api.telegram.org/bot" + CHANNEL + "/sendMessage?chat_id=" + CHAT_ID + "&text=" + encoded_message
@@ -134,7 +126,31 @@ def send_message_to_telegram_channel(text):
     file.close()
 
 def getMachineGuess():
+    data = getBlazeData()
+    if data is None:
+        return send_message_to_telegram_channel(None)
     return send_message_to_telegram_channel(predict())
+
+def startStream():
+    global stream
+    while stream:
+        data = getBlazeData()
+        if data is None:
+            time.sleep(3)
+            continue
+        send_message_to_telegram_channel(predict())
+        time.sleep(3)
+    return
+
+def stopStream():
+    global stream
+    stream = False
+    return
+
+def startStreamInThread():
+    thread = threading.Thread(target=startStream)
+    thread.start()
+     
 
 async def listenMessages():
 
@@ -159,8 +175,14 @@ async def listenMessages():
         while True:
             messages = await client.get_messages(group.id, limit=1)
             message = messages[0]
-            if message.message.strip().lower() == 'roll':
+            if message.message.strip().lower() == '/roll':
                 getMachineGuess()
+            if message.message.strip().lower() == '/start_stream':
+                global stream
+                stream = True
+                startStreamInThread()
+            if message.message.strip().lower() == '/stop_stream':
+                stopStream()
             await asyncio.sleep(2)
     else:
         print(f'Canal "{CHANNEL_LINK}" não encontrado')
