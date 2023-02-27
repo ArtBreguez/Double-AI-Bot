@@ -100,7 +100,7 @@ def send_message_to_telegram_channel(text):
     elif text == 0:
         message = "A próxima jogada é ⚪"
     elif text == 3:
-        message = "👨🏼‍💻 Não sou capaz de prever a próxima jogada 🤖"
+        return
     elif text is None:
         message = "👨🏼‍💻 Não há novas jogadas 🤖"
 
@@ -131,14 +131,18 @@ def getMachineGuess():
         return send_message_to_telegram_channel(None)
     return send_message_to_telegram_channel(predict())
 
-def startStream():
+def startStream(onlywhitelist=False):
     global stream
     while stream:
         data = getBlazeData()
         if data is None:
             time.sleep(3)
             continue
-        send_message_to_telegram_channel(predict())
+        prediction = predict()
+        if onlywhitelist and prediction != 0:
+            time.sleep(3)
+            continue
+        send_message_to_telegram_channel(prediction)
         time.sleep(3)
     return
 
@@ -147,8 +151,8 @@ def stopStream():
     stream = False
     return
 
-def startStreamInThread():
-    thread = threading.Thread(target=startStream)
+def startStreamInThread(onlywhitelist=False):
+    thread = threading.Thread(target=startStream, args=(onlywhitelist,))
     thread.start()
      
 
@@ -168,19 +172,20 @@ async def listenMessages():
     if isinstance(group, telethon.tl.types.Channel):
         print('ID do canal:', group.id)
         print('Nome do canal:', group.title)
-        # Se inscreve no canal
         await client(JoinChannelRequest(group.id))
-        # Inicia a escuta das mensagens
         print('Escutando mensagens do canal...')
         while True:
             messages = await client.get_messages(group.id, limit=1)
             message = messages[0]
+            global stream
             if message.message.strip().lower() == '/roll':
                 getMachineGuess()
             if message.message.strip().lower() == '/start_stream':
-                global stream
                 stream = True
                 startStreamInThread()
+            if message.message.strip().lower() == '/start_stream_whitelist':
+                stream = True
+                startStreamInThread(True)
             if message.message.strip().lower() == '/stop_stream':
                 stopStream()
             await asyncio.sleep(2)
