@@ -11,4 +11,4 @@ RUN pip install urllib3
 RUN pip install asyncio
 RUN pip install send2trash
 EXPOSE 5000
-ENTRYPOINT [ "python", "/telegram-api/use-model.py" ]
+ENTRYPOINT [ "python", "/telegram-api/app.py" ]
