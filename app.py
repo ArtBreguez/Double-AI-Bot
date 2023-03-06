@@ -29,9 +29,7 @@ class TotalPages:
         self.total_pages = total_pages
         self.records = records
 
-game_num = []
 game_color = []	
-actions = [0, 1, 2, 3]
 previous_payload = None
 stream = 0
 
@@ -53,8 +51,7 @@ def read_config(file):
 CHANNEL, CHAT_ID, BLAZE, API_HASH, API_ID, MODEL_PATH, CHANNEL_LINK = read_config('config.yml')
 
 model = pickle.load(open(MODEL_PATH, 'rb'))
-model.epsilon = 0.15
-colors = ['red', 'black', 'white', 'white', 'white']
+model.epsilon = 0.1
 def getBlazeData():
     global previous_payload
     data = requests.get(BLAZE)
@@ -80,8 +77,7 @@ def getBlazeData():
 
 def predict(game_color):
     if np.random.rand() <= model.epsilon:
-        action = random.choice(colors)
-        return action
+        return 'white'
     action = model.predict([game_color])
     return action[0]
 
