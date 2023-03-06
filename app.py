@@ -54,7 +54,7 @@ CHANNEL, CHAT_ID, BLAZE, API_HASH, API_ID, MODEL_PATH, CHANNEL_LINK = read_confi
 
 model = pickle.load(open(MODEL_PATH, 'rb'))
 model.epsilon = 0.15
-colors = [0,1,2,2,2]
+colors = ['red', 'black', 'white', 'white', 'white']
 def getBlazeData():
     global previous_payload
     data = requests.get(BLAZE)
