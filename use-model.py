@@ -13,6 +13,9 @@ import numpy as np
 from tensorflow.keras.models import load_model
 import time
 import threading
+import pickle
+from sklearn.preprocessing import LabelEncoder
+
 
 class Records:
     def __init__(self, id, created_at, color, roll):
@@ -27,6 +30,7 @@ class TotalPages:
         self.records = records
 
 game_num = []
+game_color = []	
 actions = [0, 1, 2, 3]
 previous_payload = None
 stream = 0
@@ -48,11 +52,9 @@ def read_config(file):
 
 CHANNEL, CHAT_ID, BLAZE, API_HASH, API_ID, MODEL_PATH, CHANNEL_LINK = read_config('config.yml')
 
-model = load_model(MODEL_PATH)
-model.epsilon = 0.3
-model.q_network = tf.keras.models.load_model(MODEL_PATH)
-model.target_network = tf.keras.models.load_model(MODEL_PATH)
-
+model = pickle.load(open(MODEL_PATH, 'rb'))
+model.epsilon = 0.15
+colors = [0,1,2,2,2]
 def getBlazeData():
     global previous_payload
     data = requests.get(BLAZE)
@@ -64,40 +66,32 @@ def getBlazeData():
     if payload == previous_payload:
         return None
     previous_payload = payload
+    game_color = []
+    colors = ["red", "black", "white"]
+    encoder = LabelEncoder()
+    encoder.fit(colors)
     for i, v in enumerate(result["records"]):
-        if i == 20:
+        if i == 9:
             break
-        num = int(v["roll"])
-        game_num.append(num)
-    game_num.reverse()
-    return 1
+        color = v["color"]
+        game_color.append(encoder.transform([color])[0])
+    game_color.reverse()
+    return game_color
 
-def predict():
-    state = []
-    for i in range(len(game_num)):
-        state = game_num[max(0, i-19):i+1]
-        if len(state) < 20:
-            continue
-
-        state = np.array(state[:]).reshape((1, 20))
-    print(state)
+def predict(game_color):
     if np.random.rand() <= model.epsilon:
-        return random.choice(actions)
-    q_values = model.q_network.predict(state)
-    action = np.argmax(q_values[0])
-    print(f'Predict: {actions[action]}')
-    state = []
-    game_num.clear()
-    return action
+        action = random.choice(colors)
+        return action
+    action = model.predict([game_color])
+    return action[0]
 
 def send_message_to_telegram_channel(text):
-    print(text)
     message = ""
-    if text == 2:
+    if text == 'black':
         message = "A próxima jogada é ⚫"
-    elif text == 1:
+    elif text == 'red':
         message = "A próxima jogada é 🔴"
-    elif text == 0:
+    elif text == 'white':
         message = "A próxima jogada é ⚪"
     elif text == 3:
         return
@@ -129,7 +123,7 @@ def getMachineGuess():
     data = getBlazeData()
     if data is None:
         return send_message_to_telegram_channel(None)
-    return send_message_to_telegram_channel(predict())
+    return send_message_to_telegram_channel(predict(data))
 
 def startStream(onlywhitelist=False):
     global stream
@@ -138,7 +132,7 @@ def startStream(onlywhitelist=False):
         if data is None:
             time.sleep(3)
             continue
-        prediction = predict()
+        prediction = predict(data)
         if onlywhitelist and prediction != 0:
             time.sleep(3)
             continue
