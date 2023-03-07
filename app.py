@@ -1,4 +1,5 @@
 import json
+import re
 import requests
 import random
 import logging
@@ -8,14 +9,13 @@ import telethon
 from telethon import TelegramClient
 import asyncio
 from telethon.tl.functions.channels import JoinChannelRequest
-import tensorflow as tf
+# import tensorflow as tf
 import numpy as np
-from tensorflow.keras.models import load_model
+# from tensorflow.keras.models import load_model
 import time
 import threading
 import pickle
 from sklearn.preprocessing import LabelEncoder
-
 
 class Records:
     def __init__(self, id, created_at, color, roll):
@@ -32,6 +32,7 @@ class TotalPages:
 game_color = []	
 previous_payload = None
 stream = 0
+last_prediction = ''
 
 def read_config(file):
     with open(file, 'r') as stream:
@@ -61,7 +62,7 @@ def getBlazeData():
     result = json.loads(data.text)
     payload = json.dumps(result["records"][:20])
     if payload == previous_payload:
-        return None
+        return None    
     previous_payload = payload
     game_color = []
     colors = ["red", "black", "white"]
@@ -79,7 +80,23 @@ def predict(game_color):
     if np.random.rand() <= model.epsilon:
         return 'white'
     action = model.predict([game_color])
+    global last_prediction
+    last_prediction = action[0]
     return action[0]
+
+def checkWin(game_color):
+    print(game_color)
+    global last_prediction
+    
+    color_dict = {0:'red', 1:'black', 2:'white'}
+    game_color_num = color_dict.get(game_color[-1])
+    print(game_color_num)
+    print(last_prediction)
+    if game_color_num == last_prediction:
+        log('win')
+    else:
+        log('loss')
+
 
 def send_message_to_telegram_channel(text):
     message = ""
@@ -97,22 +114,32 @@ def send_message_to_telegram_channel(text):
     encoded_message = urllib.parse.quote(message)
     url = "https://api.telegram.org/bot" + CHANNEL + "/sendMessage?chat_id=" + CHAT_ID + "&text=" + encoded_message
 
-    try:
-        file = open("logs/requests.log", "a")
-    except:
-        logging.error("Failed to open file logs/requests.log")
-        return
+    # try:
+    #     file = open("logs/requests.log", "a")
+    # except:
+    #     logging.error("Failed to open file logs/requests.log")
+    #     return
 
     try:
         resp = requests.get(url)
     except requests.exceptions.RequestException as e:
         logging.error("Error sending message to telegram channel: " + str(e))
-        file.close()
+        # file.close()
         return
+    log(resp.text)
+    # body = resp.text
+    # logging.basicConfig(filename="logs/requests.log", level=logging.INFO)
+    # logging.info(body)
+    # file.close()
 
-    body = resp.text
+def log(message):
+    try:
+        file = open("logs/requests.log", "a")
+    except:
+        logging.error("Failed to open file logs/requests.log")
+        return
     logging.basicConfig(filename="logs/requests.log", level=logging.INFO)
-    logging.info(body)
+    logging.info(message)
     file.close()
 
 def getMachineGuess():
@@ -128,6 +155,7 @@ def startStream(onlywhitelist=False):
         if data is None:
             time.sleep(3)
             continue
+        checkWin(data)
         prediction = predict(data)
         if onlywhitelist and prediction != 0:
             time.sleep(3)
@@ -178,6 +206,8 @@ async def listenMessages():
                 startStreamInThread(True)
             if message.message.strip().lower() == '/stop_stream':
                 stopStream()
+            if message.message.strip().lower() == '/cmd':
+                send_message_to_telegram_channel('cmd')    
             await asyncio.sleep(2)
     else:
         print(f'Canal "{CHANNEL_LINK}" não encontrado')
