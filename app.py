@@ -89,8 +89,8 @@ def send_message_to_telegram_channel(text):
         message = "A próxima jogada é 🔴"
     elif text == 'white':
         message = "A próxima jogada é ⚪"
-    elif text == 3:
-        return
+    elif text == 'cmd':
+        message = "👨🏼‍💻 Comandos disponíveis 🤖\n\n/start_stream - Inicia o stream de jogadas\n/stop_stream - Para o stream de jogadas\n/roll - Prediz a próxima jogada"
     elif text is None:
         message = "👨🏼‍💻 Não há novas jogadas 🤖"
 
