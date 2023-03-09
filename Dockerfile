@@ -1,14 +1,14 @@
 FROM python:3.9.16-buster
+
 WORKDIR /telegram-api
-COPY . .
-RUN pip install --upgrade pip
-RUN pip install tensorflow
-RUN pip install ioutil
+
+COPY requirements.txt .
+
 RUN pip install logrus
-RUN pip install telethon
-RUN pip install pyyaml
-RUN pip install urllib3
-RUN pip install asyncio
-RUN pip install send2trash
-EXPOSE 5000
+
+RUN pip install --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt 
+
+COPY . .
+
 ENTRYPOINT [ "python", "/telegram-api/app.py" ]
