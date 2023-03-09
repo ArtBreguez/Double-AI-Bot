@@ -1,7 +1,5 @@
 import json
-import re
 import requests
-import random
 import logging
 import urllib
 import yaml
@@ -9,13 +7,16 @@ import telethon
 from telethon import TelegramClient
 import asyncio
 from telethon.tl.functions.channels import JoinChannelRequest
-# import tensorflow as tf
 import numpy as np
-# from tensorflow.keras.models import load_model
 import time
 import threading
 import pickle
 from sklearn.preprocessing import LabelEncoder
+# import datetime
+import json
+import re
+from datetime import datetime
+import pytz
 
 class Records:
     def __init__(self, id, created_at, color, roll):
@@ -52,7 +53,7 @@ def read_config(file):
 CHANNEL, CHAT_ID, BLAZE, API_HASH, API_ID, MODEL_PATH, CHANNEL_LINK = read_config('config.yml')
 
 model = pickle.load(open(MODEL_PATH, 'rb'))
-model.epsilon = 0.1
+model.epsilon = 0.05
 def getBlazeData():
     global previous_payload
     data = requests.get(BLAZE)
@@ -77,8 +78,8 @@ def getBlazeData():
     return game_color
 
 def predict(game_color):
-    if np.random.rand() <= model.epsilon:
-        return 'white'
+    # if np.random.rand() <= model.epsilon:
+    #     return 'white'
     action = model.predict([game_color])
     global last_prediction
     last_prediction = action[0]
@@ -87,16 +88,37 @@ def predict(game_color):
 def checkWin(game_color):
     print(game_color)
     global last_prediction
-    
-    color_dict = {0:'red', 1:'black', 2:'white'}
+    if last_prediction == '' or last_prediction is None or game_color is None:
+        return
+    color_dict = {1:'red', 0:'black', 2:'white'}
     game_color_num = color_dict.get(game_color[-1])
-    print(game_color_num)
-    print(last_prediction)
     if game_color_num == last_prediction:
-        log('win')
+        log({"predicted": last_prediction, "result": game_color_num, "status": "win"})
     else:
-        log('loss')
+        log({"predicted": last_prediction, "result": game_color_num, "status": "loss"})
 
+def calculate_win_loss_percentage():
+    # define o fuso horário local
+    local_tz = pytz.timezone('America/Sao_Paulo')
+    win_count = 0
+    loss_count = 0
+    today = datetime.now(local_tz).strftime("%Y-%m-%d")
+    with open('logs/requests.log', 'r') as f:
+        for line in f:
+            match = re.search(r"^INFO:root:\[([\d-]+ [\d:]+)\] {'predicted': '(\w+)', 'result': '(\w+)', 'status': '(\w+)'}", line)
+            if match:
+                log_date, predicted, result, status = match.groups()
+                # converte a data para o fuso horário local
+                log_date = pytz.timezone('America/New_York').localize(datetime.strptime(log_date, "%Y-%m-%d %H:%M:%S")).astimezone(local_tz).strftime("%Y-%m-%d")
+                if log_date == today:
+                    if predicted == result and status == 'win':
+                        win_count += 1
+                    elif predicted != result and status == 'loss':
+                        loss_count += 1
+    total_count = win_count + loss_count
+    win_percentage = round(win_count / total_count * 100, 2) if total_count > 0 else 0.0
+    loss_percentage = round(loss_count / total_count * 100, 2) if total_count > 0 else 0.0
+    return win_percentage, loss_percentage
 
 def send_message_to_telegram_channel(text):
     message = ""
@@ -107,30 +129,20 @@ def send_message_to_telegram_channel(text):
     elif text == 'white':
         message = "A próxima jogada é ⚪"
     elif text == 'cmd':
-        message = "👨🏼‍💻 Comandos disponíveis 🤖\n\n/start_stream - Inicia o stream de jogadas\n/stop_stream - Para o stream de jogadas\n/roll - Prediz a próxima jogada"
+        message = "👨🏼‍💻 Comandos disponíveis 🤖\n\n/start_stream - Inicia o stream de jogadas 🎰\n/stop_stream - Para o stream de jogadas 🛑\n/roll - Prediz a próxima jogada 🎲\n/statistics - Exibe as estatísticas de vitória/derrota 📈"
     elif text is None:
         message = "👨🏼‍💻 Não há novas jogadas 🤖"
+    elif "Estatísticas" in text:
+        message = text     
 
     encoded_message = urllib.parse.quote(message)
     url = "https://api.telegram.org/bot" + CHANNEL + "/sendMessage?chat_id=" + CHAT_ID + "&text=" + encoded_message
-
-    # try:
-    #     file = open("logs/requests.log", "a")
-    # except:
-    #     logging.error("Failed to open file logs/requests.log")
-    #     return
 
     try:
         resp = requests.get(url)
     except requests.exceptions.RequestException as e:
         logging.error("Error sending message to telegram channel: " + str(e))
-        # file.close()
         return
-    log(resp.text)
-    # body = resp.text
-    # logging.basicConfig(filename="logs/requests.log", level=logging.INFO)
-    # logging.info(body)
-    # file.close()
 
 def log(message):
     try:
@@ -138,8 +150,11 @@ def log(message):
     except:
         logging.error("Failed to open file logs/requests.log")
         return
+    
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    log_message = f"[{timestamp}] {message}"
     logging.basicConfig(filename="logs/requests.log", level=logging.INFO)
-    logging.info(message)
+    logging.info(log_message)
     file.close()
 
 def getMachineGuess():
@@ -207,7 +222,14 @@ async def listenMessages():
             if message.message.strip().lower() == '/stop_stream':
                 stopStream()
             if message.message.strip().lower() == '/cmd':
-                send_message_to_telegram_channel('cmd')    
+                send_message_to_telegram_channel('cmd')
+            if message.message.strip().lower() == '/statistics':
+                statistics = calculate_win_loss_percentage()
+                print(statistics)
+                if statistics is None:
+                    send_message_to_telegram_channel("Não há estatísticas disponíveis")
+                else:
+                    send_message_to_telegram_channel(f"📈 Estatísticas 📈\n\nVitórias: {statistics[0]}%\nDerrotas: {statistics[1]}%")        
             await asyncio.sleep(2)
     else:
         print(f'Canal "{CHANNEL_LINK}" não encontrado')
