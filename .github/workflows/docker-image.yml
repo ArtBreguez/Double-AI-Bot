@@ -19,7 +19,8 @@ jobs:
         DOCKER_USER: artbreguez
         DOCKER_PASSWORD: C0necr#w123
       run: |
-        docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD 
+        echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
+
     - name: Build the Docker image
       run: docker build . --file Dockerfile --tag artbreguez/double-ai:latest
       
