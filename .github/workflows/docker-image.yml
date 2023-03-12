@@ -18,8 +18,8 @@ jobs:
     - with:
           username: artbreguez
           password: C0necr#w123
-    - name: Checkout      
-    - uses: actions/checkout@v2
+#     - name: Checkout      
+#     - uses: actions/checkout@v2
     - name: Build the Docker image
       run: docker build . --file Dockerfile --tag artbreguez/double-ai:latest
       
