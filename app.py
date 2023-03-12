@@ -12,7 +12,6 @@ import time
 import threading
 import pickle
 from sklearn.preprocessing import LabelEncoder
-# import datetime
 import json
 import re
 from datetime import datetime
@@ -53,7 +52,7 @@ def read_config(file):
 CHANNEL, CHAT_ID, BLAZE, API_HASH, API_ID, MODEL_PATH, CHANNEL_LINK = read_config('config.yml')
 
 model = pickle.load(open(MODEL_PATH, 'rb'))
-model.epsilon = 0.05
+model.epsilon = 0.03
 def getBlazeData():
     global previous_payload
     data = requests.get(BLAZE)
@@ -65,7 +64,8 @@ def getBlazeData():
     if payload == previous_payload:
         return None    
     previous_payload = payload
-    game_color = []
+    global game_color
+    game_color.clear()
     colors = ["red", "black", "white"]
     encoder = LabelEncoder()
     encoder.fit(colors)
@@ -78,15 +78,15 @@ def getBlazeData():
     return game_color
 
 def predict(game_color):
-    # if np.random.rand() <= model.epsilon:
-    #     return 'white'
+    if np.random.rand() <= model.epsilon:
+        return 'white'
     action = model.predict([game_color])
     global last_prediction
     last_prediction = action[0]
     return action[0]
 
 def checkWin(game_color):
-    print(game_color)
+
     global last_prediction
     if last_prediction == '' or last_prediction is None or game_color is None:
         return
@@ -98,10 +98,10 @@ def checkWin(game_color):
         log({"predicted": last_prediction, "result": game_color_num, "status": "loss"})
 
 def calculate_win_loss_percentage():
-    # define o fuso horário local
     local_tz = pytz.timezone('America/Sao_Paulo')
     win_count = 0
     loss_count = 0
+    total_count = 0
     today = datetime.now(local_tz).strftime("%Y-%m-%d")
     with open('logs/requests.log', 'r') as f:
         for line in f:
@@ -115,10 +115,10 @@ def calculate_win_loss_percentage():
                         win_count += 1
                     elif predicted != result and status == 'loss':
                         loss_count += 1
-    total_count = win_count + loss_count
+                    total_count += 1
     win_percentage = round(win_count / total_count * 100, 2) if total_count > 0 else 0.0
     loss_percentage = round(loss_count / total_count * 100, 2) if total_count > 0 else 0.0
-    return win_percentage, loss_percentage
+    return win_percentage, loss_percentage, total_count
 
 def send_message_to_telegram_channel(text):
     message = ""
@@ -128,12 +128,17 @@ def send_message_to_telegram_channel(text):
         message = "A próxima jogada é 🔴"
     elif text == 'white':
         message = "A próxima jogada é ⚪"
-    elif text == 'cmd':
-        message = "👨🏼‍💻 Comandos disponíveis 🤖\n\n/start_stream - Inicia o stream de jogadas 🎰\n/stop_stream - Para o stream de jogadas 🛑\n/roll - Prediz a próxima jogada 🎲\n/statistics - Exibe as estatísticas de vitória/derrota 📈"
+    elif text == 'help':
+        message = "👨🏼‍💻 Comandos disponíveis 🤖\n\n/start_stream - Inicia o stream de jogadas 🎰\n/stop_stream - Para o stream de jogadas 🛑\n/roll - Prediz a próxima jogada 🎲\n/statistics - Exibe as estatísticas de vitória/derrota 📈\n/last_plays - Exibe as últimas jogadas 🕹️"
     elif text is None:
         message = "👨🏼‍💻 Não há novas jogadas 🤖"
     elif "Estatísticas" in text:
-        message = text     
+        message = text
+    elif text == "last_plays":
+        getBlazeData()
+        colors = game_color
+        message = "👨🏼‍💻 Últimas jogadas 🤖\n\n" + convert_to_emoji(colors)
+                
 
     encoded_message = urllib.parse.quote(message)
     url = "https://api.telegram.org/bot" + CHANNEL + "/sendMessage?chat_id=" + CHAT_ID + "&text=" + encoded_message
@@ -143,6 +148,11 @@ def send_message_to_telegram_channel(text):
     except requests.exceptions.RequestException as e:
         logging.error("Error sending message to telegram channel: " + str(e))
         return
+
+def convert_to_emoji(game_color):
+    emoji_dict = {0: '⚫', 1: '🔴', 2: '⚪'}
+    emojis = [emoji_dict[color] for color in game_color]
+    return ''.join(emojis)
 
 def log(message):
     try:
@@ -214,22 +224,22 @@ async def listenMessages():
             if message.message.strip().lower() == '/roll':
                 getMachineGuess()
             if message.message.strip().lower() == '/start_stream':
+                if stream == True:
+                    return
                 stream = True
                 startStreamInThread()
-            if message.message.strip().lower() == '/start_stream_whitelist':
-                stream = True
-                startStreamInThread(True)
             if message.message.strip().lower() == '/stop_stream':
                 stopStream()
-            if message.message.strip().lower() == '/cmd':
-                send_message_to_telegram_channel('cmd')
+            if message.message.strip().lower() == '/help':
+                send_message_to_telegram_channel('help')
             if message.message.strip().lower() == '/statistics':
                 statistics = calculate_win_loss_percentage()
-                print(statistics)
                 if statistics is None:
                     send_message_to_telegram_channel("Não há estatísticas disponíveis")
                 else:
-                    send_message_to_telegram_channel(f"📈 Estatísticas 📈\n\nVitórias: {statistics[0]}%\nDerrotas: {statistics[1]}%")        
+                    send_message_to_telegram_channel(f"📈 Estatísticas 📈\n\nVitórias: {statistics[0]}%\nDerrotas: {statistics[1]}%\nTotal de jogadas: {statistics[2]}")
+            if message.message.strip().lower() == '/last_plays':
+                send_message_to_telegram_channel('last_plays')        
             await asyncio.sleep(2)
     else:
         print(f'Canal "{CHANNEL_LINK}" não encontrado')
