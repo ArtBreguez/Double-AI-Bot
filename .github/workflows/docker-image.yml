@@ -14,8 +14,8 @@ jobs:
         name: Login to Docker Hub
         uses: docker/login-action@v2
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          username: artbreguez
+          password: C0necr#w123
   build:
 
     runs-on: ubuntu-latest
