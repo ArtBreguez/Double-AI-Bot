@@ -22,6 +22,7 @@ jobs:
 
     steps:
     - name: Build the Docker image
-      run: docker build . --tag artbreguez/double-ai:latest
+      run: ls
+      #run: docker build . --tag artbreguez/double-ai:latest
     - name: Push the Docker image to DockerHub
       run: docker push artbreguez/double-ai:latest
