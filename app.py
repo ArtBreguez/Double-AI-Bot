@@ -16,6 +16,10 @@ import json
 import re
 from datetime import datetime
 import pytz
+import asyncio
+import websockets
+import time
+import re
 
 class Records:
     def __init__(self, id, created_at, color, roll):
@@ -33,6 +37,8 @@ game_color = []
 previous_payload = None
 stream = 0
 last_prediction = ''
+global red_total
+global black_total
 
 def read_config(file):
     with open(file, 'r') as stream:
@@ -74,10 +80,17 @@ def getBlazeData():
 def predict(game_color):
     if np.random.rand() <= model.epsilon:
         return 'white'
+    global current_bet_red
+    global current_bet_black
+    current_bet_black = 0
+    current_bet_red = 0
+    asyncio.run(ws())
     action = model.predict([game_color])
     global last_prediction
     last_prediction = action[0]
-    return action[0]
+
+    print(last_prediction)
+    return last_prediction
 
 def checkWin(game_color):
     global last_prediction
@@ -221,6 +234,53 @@ async def listenMessages():
         except Exception as e:
             print(f"Erro ao obter informações do canal: {e}")
             return
+
+async def ws():
+    header = {
+        'Upgrade': 'websocket',
+        'Sec-Webscoket-Extensions': 'permessage-deflate; client_max_window_bits',
+        'Host': 'api-v2.blaze.com',
+        'Origin': 'https://blaze.com',
+        'Sec-Webscoket-Key': 'wrvXWYFEBzj9IiVmeJ/qxQ==',
+        'Sec-Webscoket-Version': '13',
+        'Pragma': 'no-cache',
+        'Connection': 'Upgrade',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.0.0 Safari/537.36'
+    }
+    while True:
+        try:
+            async with websockets.connect('wss://api-v2.blaze.com/replication/?EIO=3&transport=websocket', extra_headers=header) as websocket:
+                # Envia o comando de subscribe
+                await websocket.send('423["cmd",{"id":"subscribe","payload":{"room":"double_v2"}}]')
+
+                async for message in websocket:
+                    match = re.search(r'"status":"waiting"', message)
+                    if match:
+                        # Procura pelas strings 'total_red_eur_bet' e 'total_black_eur_bet' na mensagem usando regex
+                        match = re.search(r'total_red_eur_bet":(\d+\.\d+).*total_black_eur_bet":(\d+\.\d+)', message)
+                        if match:
+                            # Se encontrou, extrai os valores e armazena nas variáveis
+                            total_red_eur_bet = match.group(1)
+                            total_black_eur_bet = match.group(2)
+                            global red_total
+                            global black_total
+                            red_total = total_red_eur_bet
+                            black_total = total_black_eur_bet
+                            print(f"Total red EUR bet: {red_total}, Total black EUR bet: {black_total}")
+                            if red_total and black_total:
+                                # Se as variáveis estiverem preenchidas, encerra a conexão e retorna
+                                await websocket.close()
+                                return
+        except websockets.exceptions.ConnectionClosedError:
+            print("Connection lost. Reconnecting...")
+            time.sleep(5)  # wait for 5 seconds before trying to reconnect
+        except Exception as e:
+            print(f"Unexpected error: {e}")
+            break
+        
+async def close_connection(websocket):
+    await websocket.close()
     
 async def main():
     await listenMessages()
