@@ -16,10 +16,7 @@ import json
 import re
 from datetime import datetime
 import pytz
-import asyncio
 import websockets
-import time
-import re
 
 class Records:
     def __init__(self, id, created_at, color, roll):
