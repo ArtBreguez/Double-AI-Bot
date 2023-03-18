@@ -37,8 +37,8 @@ game_color = []
 previous_payload = None
 stream = 0
 last_prediction = ''
-global red_total
-global black_total
+current_bet_red = 0
+current_bet_black = 0
 
 def read_config(file):
     with open(file, 'r') as stream:
@@ -80,17 +80,32 @@ def getBlazeData():
 def predict(game_color):
     if np.random.rand() <= model.epsilon:
         return 'white'
-    global current_bet_red
-    global current_bet_black
-    current_bet_black = 0
-    current_bet_red = 0
     asyncio.run(ws())
     action = model.predict([game_color])
+    
     global last_prediction
+    global current_bet_black
+    global current_bet_red
     last_prediction = action[0]
 
-    print(last_prediction)
-    return last_prediction
+    if last_prediction == 'red':
+        if float(current_bet_black) >= (3 * float(current_bet_red)):
+            current_bet_black = 0
+            current_bet_red = 0
+            return last_prediction
+        else:
+            return 'none'
+    if last_prediction == 'black':
+        if float(current_bet_red) >= (3 * float(current_bet_black)):
+            current_bet_black = 0
+            current_bet_red = 0
+            return last_prediction
+        else:
+            return 'none'
+    if last_prediction == 'white':
+        return last_prediction
+    else :
+        return 'none'    
 
 def checkWin(game_color):
     global last_prediction
@@ -263,12 +278,11 @@ async def ws():
                             # Se encontrou, extrai os valores e armazena nas variáveis
                             total_red_eur_bet = match.group(1)
                             total_black_eur_bet = match.group(2)
-                            global red_total
-                            global black_total
-                            red_total = total_red_eur_bet
-                            black_total = total_black_eur_bet
-                            print(f"Total red EUR bet: {red_total}, Total black EUR bet: {black_total}")
-                            if red_total and black_total:
+                            global current_bet_red
+                            global current_bet_black
+                            current_bet_red = total_red_eur_bet
+                            current_bet_black = total_black_eur_bet
+                            if current_bet_red and current_bet_black:
                                 # Se as variáveis estiverem preenchidas, encerra a conexão e retorna
                                 await websocket.close()
                                 return
