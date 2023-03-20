@@ -48,11 +48,13 @@ def read_config(file):
             API_ID = config['API_ID']
             CHANNEL_LINK = config['CHANNEL_LINK']
             MODEL_PATH = config['MODEL_PATH']
-            return CHANNEL, CHAT_ID, BLAZE, API_HASH, API_ID, MODEL_PATH, CHANNEL_LINK
+            WEBSOCKET = config['WEBSOCKET']
+            LOGS = config['LOGS']
+            return CHANNEL, CHAT_ID, BLAZE, API_HASH, API_ID, MODEL_PATH, CHANNEL_LINK, WEBSOCKET, LOGS
         except yaml.YAMLError as e:
             print(e)
 
-CHANNEL, CHAT_ID, BLAZE, API_HASH, API_ID, MODEL_PATH, CHANNEL_LINK = read_config('config.yml')
+CHANNEL, CHAT_ID, BLAZE, API_HASH, API_ID, MODEL_PATH, CHANNEL_LINK, WEBSOCKET, LOGS = read_config('config.yml')
 
 model = pickle.load(open(MODEL_PATH, 'rb'))
 model.epsilon = 0.03
@@ -71,7 +73,7 @@ def getBlazeData():
         game_color = [encoder.transform([record["color"]])[0] for record in reversed(data["records"][:9])]
         return game_color
     except requests.exceptions.RequestException as e:
-        print(f"Error getting data from blaze.com: {e}")
+        log(f"Error getting data from blaze.com: {e}")
 
 
 def predict(game_color):
@@ -84,13 +86,14 @@ def predict(game_color):
     global current_bet_black
     global current_bet_red
     last_prediction = action[0]
-
+    
     if last_prediction == 'red':
         if float(current_bet_black) >= (3 * float(current_bet_red)):
             current_bet_black = 0
             current_bet_red = 0
             return last_prediction
         else:
+            last_prediction = 'none'
             return 'none'
     if last_prediction == 'black':
         if float(current_bet_red) >= (3 * float(current_bet_black)):
@@ -98,17 +101,18 @@ def predict(game_color):
             current_bet_red = 0
             return last_prediction
         else:
+            last_prediction = 'none'
             return 'none'
     if last_prediction == 'white':
         return last_prediction
     else :
+        last_prediction = 'none'
         return 'none'    
 
 def checkWin(game_color):
     global last_prediction
-    if not last_prediction or not game_color:
+    if not last_prediction or not game_color or last_prediction == 'none':
         return
-
     color_dict = {1: 'red', 0: 'black', 2: 'white'}
     game_color_num = color_dict.get(game_color[-1])
 
@@ -173,10 +177,10 @@ def convert_to_emoji(game_color):
 
 def log(message):
     try:
-        with open('logs/requests.log', 'a') as file:
+        with open(LOGS, 'a') as file:
             timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             log_message = f'[{timestamp}] {message}'
-            logging.basicConfig(filename='logs/requests.log', level=logging.INFO)
+            logging.basicConfig(filename=LOGS, level=logging.INFO)
             logging.info(log_message)
     except Exception as e:
         logging.error('Error writing to log file:', e)
@@ -214,10 +218,8 @@ async def listenMessages():
         try:
             group = await client.get_entity(CHANNEL_LINK)
             if isinstance(group, telethon.tl.types.Channel):
-                print('ID do canal:', group.id)
-                print('Nome do canal:', group.title)
+                print(group.title)
                 await client(JoinChannelRequest(group.id))
-                print('Escutando mensagens do canal...')
                 while True:
                     messages = await client.get_messages(group.id, limit=1)
                     message = messages[0]
@@ -242,9 +244,9 @@ async def listenMessages():
                         send_message_to_telegram_channel('last_plays')        
                     await asyncio.sleep(2)
             else:
-                print(f'Canal "{CHANNEL_LINK}" não encontrado')
+                log(f'Canal "{CHANNEL_LINK}" não encontrado')
         except Exception as e:
-            print(f"Erro ao obter informações do canal: {e}")
+            log(f"Erro ao obter informações do canal: {e}")
             return
 
 async def ws():
@@ -262,7 +264,7 @@ async def ws():
     }
     while True:
         try:
-            async with websockets.connect('wss://api-v2.blaze.com/replication/?EIO=3&transport=websocket', extra_headers=header) as websocket:
+            async with websockets.connect(WEBSOCKET, extra_headers=header) as websocket:
                 # Envia o comando de subscribe
                 await websocket.send('423["cmd",{"id":"subscribe","payload":{"room":"double_v2"}}]')
 
@@ -284,10 +286,10 @@ async def ws():
                                 await websocket.close()
                                 return
         except websockets.exceptions.ConnectionClosedError:
-            print("Connection lost. Reconnecting...")
+            log("Connection lost. Reconnecting...")
             time.sleep(5)  # wait for 5 seconds before trying to reconnect
         except Exception as e:
-            print(f"Unexpected error: {e}")
+            log(f"Unexpected error: {e}")
             break
         
 async def close_connection(websocket):
