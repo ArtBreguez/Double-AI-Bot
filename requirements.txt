@@ -5,3 +5,4 @@ pyyaml
 telethon
 ioutil
 scikit-learn
+websockets

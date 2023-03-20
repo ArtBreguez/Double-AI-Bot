@@ -16,6 +16,7 @@ import json
 import re
 from datetime import datetime
 import pytz
+import websockets
 
 class Records:
     def __init__(self, id, created_at, color, roll):
@@ -33,6 +34,8 @@ game_color = []
 previous_payload = None
 stream = 0
 last_prediction = ''
+current_bet_red = 0
+current_bet_black = 0
 
 def read_config(file):
     with open(file, 'r') as stream:
@@ -45,11 +48,14 @@ def read_config(file):
             API_ID = config['API_ID']
             CHANNEL_LINK = config['CHANNEL_LINK']
             MODEL_PATH = config['MODEL_PATH']
-            return CHANNEL, CHAT_ID, BLAZE, API_HASH, API_ID, MODEL_PATH, CHANNEL_LINK
+            WEBSOCKET = config['WEBSOCKET']
+            LOGS = config['LOGS']
+            JOIN = config['JOIN']
+            return CHANNEL, CHAT_ID, BLAZE, API_HASH, API_ID, MODEL_PATH, CHANNEL_LINK, WEBSOCKET, LOGS, JOIN
         except yaml.YAMLError as e:
             print(e)
 
-CHANNEL, CHAT_ID, BLAZE, API_HASH, API_ID, MODEL_PATH, CHANNEL_LINK = read_config('config.yml')
+CHANNEL, CHAT_ID, BLAZE, API_HASH, API_ID, MODEL_PATH, CHANNEL_LINK, WEBSOCKET, LOGS, JOIN = read_config('config.yml')
 
 model = pickle.load(open(MODEL_PATH, 'rb'))
 model.epsilon = 0.03
@@ -68,22 +74,47 @@ def getBlazeData():
         game_color = [encoder.transform([record["color"]])[0] for record in reversed(data["records"][:9])]
         return game_color
     except requests.exceptions.RequestException as e:
-        print(f"Error getting data from blaze.com: {e}")
+        log(f"Error getting data from blaze.com: {e}")
 
 
 def predict(game_color):
-    if np.random.rand() <= model.epsilon:
-        return 'white'
-    action = model.predict([game_color])
     global last_prediction
+    if np.random.rand() <= model.epsilon:
+        last_prediction = 'white'
+        return 'white'
+    asyncio.run(ws())
+    action = model.predict([game_color])
+    
+    global current_bet_black
+    global current_bet_red
     last_prediction = action[0]
-    return action[0]
+    
+    if last_prediction == 'red':
+        if float(current_bet_black) >= (3 * float(current_bet_red)):
+            current_bet_black = 0
+            current_bet_red = 0
+            return last_prediction
+        else:
+            last_prediction = 'none'
+            return 'none'
+    if last_prediction == 'black':
+        if float(current_bet_red) >= (3 * float(current_bet_black)):
+            current_bet_black = 0
+            current_bet_red = 0
+            return last_prediction
+        else:
+            last_prediction = 'none'
+            return 'none'
+    if last_prediction == 'white':
+        return last_prediction
+    else :
+        last_prediction = 'none'
+        return 'none'    
 
 def checkWin(game_color):
     global last_prediction
-    if not last_prediction or not game_color:
+    if not last_prediction or not game_color or last_prediction == 'none':
         return
-
     color_dict = {1: 'red', 0: 'black', 2: 'white'}
     game_color_num = color_dict.get(game_color[-1])
 
@@ -96,7 +127,7 @@ def checkWin(game_color):
 def calculate_win_loss_percentage():
     win_count = loss_count = total_count = 0
     today = datetime.now(pytz.timezone('America/Sao_Paulo')).strftime("%Y-%m-%d")
-    with open('logs/requests.log', 'r') as f:
+    with open(LOGS, 'r') as f:
         for line in f:
             match = re.search(r"^INFO:root:\[([\d-]+ [\d:]+)\] {'predicted': '(\w+)', 'result': '(\w+)', 'status': '(\w+)'}", line)
             if match:
@@ -148,10 +179,10 @@ def convert_to_emoji(game_color):
 
 def log(message):
     try:
-        with open('logs/requests.log', 'a') as file:
+        with open(LOGS, 'a') as file:
             timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             log_message = f'[{timestamp}] {message}'
-            logging.basicConfig(filename='logs/requests.log', level=logging.INFO)
+            logging.basicConfig(filename=LOGS, level=logging.INFO)
             logging.info(log_message)
     except Exception as e:
         logging.error('Error writing to log file:', e)
@@ -189,10 +220,8 @@ async def listenMessages():
         try:
             group = await client.get_entity(CHANNEL_LINK)
             if isinstance(group, telethon.tl.types.Channel):
-                print('ID do canal:', group.id)
-                print('Nome do canal:', group.title)
+                print(group.title)
                 await client(JoinChannelRequest(group.id))
-                print('Escutando mensagens do canal...')
                 while True:
                     messages = await client.get_messages(group.id, limit=1)
                     message = messages[0]
@@ -217,10 +246,56 @@ async def listenMessages():
                         send_message_to_telegram_channel('last_plays')        
                     await asyncio.sleep(2)
             else:
-                print(f'Canal "{CHANNEL_LINK}" não encontrado')
+                log(f'Canal "{CHANNEL_LINK}" não encontrado')
         except Exception as e:
-            print(f"Erro ao obter informações do canal: {e}")
+            log(f"Erro ao obter informações do canal: {e}")
             return
+
+async def ws():
+    header = {
+        'Upgrade': 'websocket',
+        'Sec-Webscoket-Extensions': 'permessage-deflate; client_max_window_bits',
+        'Host': 'api-v2.blaze.com',
+        'Origin': 'https://blaze.com',
+        'Sec-Webscoket-Key': 'wrvXWYFEBzj9IiVmeJ/qxQ==',
+        'Sec-Webscoket-Version': '13',
+        'Pragma': 'no-cache',
+        'Connection': 'Upgrade',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.0.0 Safari/537.36'
+    }
+    while True:
+        try:
+            async with websockets.connect(WEBSOCKET, extra_headers=header) as websocket:
+                # Envia o comando de subscribe
+                await websocket.send(JOIN)
+
+                async for message in websocket:
+                    match = re.search(r'"status":"waiting"', message)
+                    if match:
+                        # Procura pelas strings 'total_red_eur_bet' e 'total_black_eur_bet' na mensagem usando regex
+                        match = re.search(r'total_red_eur_bet":(\d+\.\d+).*total_black_eur_bet":(\d+\.\d+)', message)
+                        if match:
+                            # Se encontrou, extrai os valores e armazena nas variáveis
+                            total_red_eur_bet = match.group(1)
+                            total_black_eur_bet = match.group(2)
+                            global current_bet_red
+                            global current_bet_black
+                            current_bet_red = total_red_eur_bet
+                            current_bet_black = total_black_eur_bet
+                            if current_bet_red and current_bet_black:
+                                # Se as variáveis estiverem preenchidas, encerra a conexão e retorna
+                                await websocket.close()
+                                return
+        except websockets.exceptions.ConnectionClosedError:
+            log("Connection lost. Reconnecting...")
+            time.sleep(5)  # wait for 5 seconds before trying to reconnect
+        except Exception as e:
+            log(f"Unexpected error: {e}")
+            break
+        
+async def close_connection(websocket):
+    await websocket.close()
     
 async def main():
     await listenMessages()
