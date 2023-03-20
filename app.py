@@ -50,11 +50,12 @@ def read_config(file):
             MODEL_PATH = config['MODEL_PATH']
             WEBSOCKET = config['WEBSOCKET']
             LOGS = config['LOGS']
-            return CHANNEL, CHAT_ID, BLAZE, API_HASH, API_ID, MODEL_PATH, CHANNEL_LINK, WEBSOCKET, LOGS
+            JOIN = config['JOIN']
+            return CHANNEL, CHAT_ID, BLAZE, API_HASH, API_ID, MODEL_PATH, CHANNEL_LINK, WEBSOCKET, LOGS, JOIN
         except yaml.YAMLError as e:
             print(e)
 
-CHANNEL, CHAT_ID, BLAZE, API_HASH, API_ID, MODEL_PATH, CHANNEL_LINK, WEBSOCKET, LOGS = read_config('config.yml')
+CHANNEL, CHAT_ID, BLAZE, API_HASH, API_ID, MODEL_PATH, CHANNEL_LINK, WEBSOCKET, LOGS, JOIN = read_config('config.yml')
 
 model = pickle.load(open(MODEL_PATH, 'rb'))
 model.epsilon = 0.03
@@ -77,12 +78,13 @@ def getBlazeData():
 
 
 def predict(game_color):
+    global last_prediction
     if np.random.rand() <= model.epsilon:
+        last_prediction = 'white'
         return 'white'
     asyncio.run(ws())
     action = model.predict([game_color])
     
-    global last_prediction
     global current_bet_black
     global current_bet_red
     last_prediction = action[0]
@@ -125,7 +127,7 @@ def checkWin(game_color):
 def calculate_win_loss_percentage():
     win_count = loss_count = total_count = 0
     today = datetime.now(pytz.timezone('America/Sao_Paulo')).strftime("%Y-%m-%d")
-    with open('logs/requests.log', 'r') as f:
+    with open(LOGS, 'r') as f:
         for line in f:
             match = re.search(r"^INFO:root:\[([\d-]+ [\d:]+)\] {'predicted': '(\w+)', 'result': '(\w+)', 'status': '(\w+)'}", line)
             if match:
@@ -266,7 +268,7 @@ async def ws():
         try:
             async with websockets.connect(WEBSOCKET, extra_headers=header) as websocket:
                 # Envia o comando de subscribe
-                await websocket.send('423["cmd",{"id":"subscribe","payload":{"room":"double_v2"}}]')
+                await websocket.send(JOIN)
 
                 async for message in websocket:
                     match = re.search(r'"status":"waiting"', message)
