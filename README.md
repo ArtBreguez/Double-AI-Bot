@@ -26,8 +26,6 @@ Para fazer o deploy desse projeto rode
 
 ## Roadmap
 
-- Adicionar filtro de jogadas
-
 - Adicionar mais estatísticas
 
 - Criar landing page
