@@ -15,12 +15,12 @@ O projeto de um bot de inteligência artificial ajudante de apostas do jogo Blaz
 - Prediz a proxima jogada de maneira unitaria
 
 
-## Deploy
+## Build && Deploy
 
 Para fazer o deploy desse projeto rode
 
 ```bash
-  docker build -t double-ai:latest .
+  docker compose up -d --build
 ```
 
 
