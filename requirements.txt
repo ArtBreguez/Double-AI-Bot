@@ -4,5 +4,5 @@ urllib3
 pyyaml
 telethon
 ioutil
-scikit-learn
+scikit-learn==1.2.1
 websockets

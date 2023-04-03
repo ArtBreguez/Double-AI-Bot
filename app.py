@@ -58,7 +58,6 @@ def read_config(file):
 CHANNEL, CHAT_ID, BLAZE, API_HASH, API_ID, MODEL_PATH, CHANNEL_LINK, WEBSOCKET, LOGS, JOIN = read_config('config.yml')
 
 model = pickle.load(open(MODEL_PATH, 'rb'))
-model.epsilon = 0.03
 def getBlazeData():
     global previous_payload, game_color
     try:
@@ -79,9 +78,6 @@ def getBlazeData():
 
 def predict(game_color):
     global last_prediction
-    if np.random.rand() <= model.epsilon:
-        last_prediction = 'white'
-        return 'white'
     asyncio.run(ws())
     action = model.predict([game_color])
     
@@ -90,7 +86,7 @@ def predict(game_color):
     last_prediction = action[0]
     
     if last_prediction == 'red':
-        if float(current_bet_black) >= (3 * float(current_bet_red)):
+        if float(current_bet_black) >= (2 * float(current_bet_red)):
             current_bet_black = 0
             current_bet_red = 0
             return last_prediction
@@ -98,7 +94,7 @@ def predict(game_color):
             last_prediction = 'none'
             return 'none'
     if last_prediction == 'black':
-        if float(current_bet_red) >= (3 * float(current_bet_black)):
+        if float(current_bet_red) >= (2 * float(current_bet_black)):
             current_bet_black = 0
             current_bet_red = 0
             return last_prediction
@@ -264,6 +260,9 @@ async def ws():
         'Accept-Encoding': 'gzip, deflate, br',
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.0.0 Safari/537.36'
     }
+    last_red_bet = None
+    last_black_bet = None
+    update_counter = 0
     while True:
         try:
             async with websockets.connect(WEBSOCKET, extra_headers=header) as websocket:
@@ -277,16 +276,19 @@ async def ws():
                         match = re.search(r'total_red_eur_bet":(\d+\.\d+).*total_black_eur_bet":(\d+\.\d+)', message)
                         if match:
                             # Se encontrou, extrai os valores e armazena nas variáveis
-                            total_red_eur_bet = match.group(1)
-                            total_black_eur_bet = match.group(2)
-                            global current_bet_red
-                            global current_bet_black
-                            current_bet_red = total_red_eur_bet
-                            current_bet_black = total_black_eur_bet
-                            if current_bet_red and current_bet_black:
-                                # Se as variáveis estiverem preenchidas, encerra a conexão e retorna
-                                await websocket.close()
-                                return
+                            total_red_eur_bet = float(match.group(1))
+                            total_black_eur_bet = float(match.group(2))
+                            if total_red_eur_bet != last_red_bet or total_black_eur_bet != last_black_bet:
+                                # Se os valores atuais forem diferentes dos últimos, atualiza as variáveis e reseta o contador
+                                last_red_bet = total_red_eur_bet
+                                last_black_bet = total_black_eur_bet
+                                if last_red_bet > 500 or last_black_bet > 500:
+                                    global current_bet_red
+                                    global current_bet_black
+                                    current_bet_red = f"{last_red_bet:.2f}"
+                                    current_bet_black = f"{last_black_bet:.2f}"
+                                    await websocket.close()
+                                    return
         except websockets.exceptions.ConnectionClosedError:
             log("Connection lost. Reconnecting...")
             time.sleep(5)  # wait for 5 seconds before trying to reconnect
