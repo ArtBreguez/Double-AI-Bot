@@ -7,7 +7,6 @@ import telethon
 from telethon import TelegramClient
 import asyncio
 from telethon.tl.functions.channels import JoinChannelRequest
-import numpy as np
 import time
 import threading
 import pickle
