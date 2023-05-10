@@ -146,7 +146,7 @@ def send_message_to_telegram_channel(text):
         'black': "A próxima jogada é ⚫",
         'red': "A próxima jogada é 🔴",
         'white': "A próxima jogada é ⚪",
-        'help': "👨🏼‍💻 Comandos disponíveis 🤖\n\n/start_stream - Inicia o stream de jogadas 🎰\n/stop_stream - Para o stream de jogadas 🛑\n/roll - Prediz a próxima jogada 🎲\n/statistics - Exibe as estatísticas de vitória/derrota 📈\n/last_plays - Exibe as últimas jogadas 🕹️",
+        'help': "👨🏼‍💻 Comandos disponíveis 🤖\n\n/start_stream - Inicia o stream de jogadas 🎰\n/stop_stream - Para o stream de jogadas 🛑\n/statistics - Exibe as estatísticas de vitória/derrota 📈\n/last_plays - Exibe as últimas jogadas 🕹️",
         None: "👨🏼‍💻 Não há novas jogadas 🤖",
     }
 
@@ -223,9 +223,7 @@ async def listenMessages():
                     message = messages[0]
                     global stream
                     command = message.message.strip().lower()
-                    if command == '/roll':
-                        getMachineGuess()
-                    elif command == '/start_stream' and not stream:
+                    if command == '/start_stream' and not stream:
                         stream = True
                         startStreamInThread()
                     elif command == '/stop_stream' and stream:
