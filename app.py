@@ -235,7 +235,8 @@ async def listenMessages():
                         if statistics is None:
                             send_message_to_telegram_channel("Não há estatísticas disponíveis")
                         else:
-                            send_message_to_telegram_channel(f"📈 Estatísticas 📈\n\nVitórias: {statistics[0]}%\nDerrotas: {statistics[1]}%\nTotal de jogadas: {statistics[2]}")
+                            date = datetime.today().strftime('%d/%m/%Y')
+                            send_message_to_telegram_channel(f"📈 Estatísticas 📈\n\nVitórias: {statistics[0]}%\nDerrotas: {statistics[1]}%\nTotal de jogadas: {statistics[2]}\n\nData: {date}")
                     elif command == '/last_plays':
                         send_message_to_telegram_channel('last_plays')        
                     await asyncio.sleep(2)
