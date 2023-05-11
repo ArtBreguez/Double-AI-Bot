@@ -16,6 +16,7 @@ import re
 from datetime import datetime
 import pytz
 import websockets
+import schedule
 
 class Records:
     def __init__(self, id, created_at, color, roll):
@@ -35,6 +36,7 @@ stream = 0
 last_prediction = ''
 current_bet_red = 0
 current_bet_black = 0
+
 
 def read_config(file):
     with open(file, 'r') as stream:
@@ -296,9 +298,22 @@ async def ws():
         
 async def close_connection(websocket):
     await websocket.close()
+
+async def send_daily_report():
+    session_file = 'session_name.session'
+    async with TelegramClient(session_file, API_ID, API_HASH) as client:
+        await client.send_file(CHAT_ID, 'logs/output.pdf')
+        
+schedule.every(1).minutes.do(send_daily_report)
+
+def run_schedule():
+    while True:
+        schedule.run_pending()
+        time.sleep(10)
     
 async def main():
     await listenMessages()
 
 # Iniciar a execução da função main
 asyncio.run(main())
+asyncio.create_task(run_schedule())
