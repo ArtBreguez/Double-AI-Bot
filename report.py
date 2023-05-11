@@ -1,6 +1,8 @@
 import datetime
 import json
 import matplotlib.pyplot as plt
+import os
+from fpdf import FPDF
 
 # Criar listas vazias para armazenar as informações relevantes
 dates = []
@@ -62,9 +64,9 @@ plt.ylabel('Quantidade')
 plt.title('Cores Previstas')
 plt.xticks(colors)
 plt.legend()
-
 plt.tight_layout()
-plt.show()
+plt.savefig('logs/cores_previstas.png')
+plt.clf()
 
 # Criar gráfico de resultados
 results_count = {'win': 0, 'loss': 0}
@@ -75,4 +77,75 @@ colors = ['green', 'red']
 labels = ['Vitórias', 'Derrotas']
 
 plt.pie([results_count['win'], results_count['loss']], labels=labels, colors=colors, autopct='%1.1f%%')
-plt.show()
+plt.savefig('logs/win_loss_pie.png')
+plt.clf()
+
+# Inicializar as variáveis para contar o número de vitórias e derrotas
+num_vitorias = 0
+num_derrotas = 0
+
+# Inicializar as listas para armazenar os dados para o gráfico
+pontuacao = []
+datas = []
+
+# Percorrer as datas e os resultados para calcular a pontuação em cada ponto do tempo
+for i, resultado in enumerate(results):
+    if resultado == 'win':
+        num_vitorias += 1
+    else:
+        num_derrotas += 1
+    pontuacao.append(num_vitorias - num_derrotas)
+    datas.append(dates[i])
+
+# Plotar o gráfico de linha
+fig, ax = plt.subplots()
+ax.plot(datas, pontuacao)
+ax.set_ylabel('Acertos')
+ax.set_xlabel('Horário')
+ax.set_title('Acertos ao longo do tempo')
+
+# Adicionar linhas horizontais verdes e vermelhas para indicar a mudança de pontuação
+for i in range(1, len(pontuacao)):
+    if pontuacao[i] > pontuacao[i-1]:
+        ax.axhline(y=pontuacao[i], color='green', alpha=0.5)
+        ax.scatter(datas[i], pontuacao[i], color='green', s=100)
+    else:
+        ax.axhline(y=pontuacao[i], color='red', alpha=0.5)
+        ax.scatter(datas[i], pontuacao[i], color='red', s=100)
+
+plt.savefig('logs/timeline.png')
+plt.clf()
+
+
+
+class PDF(FPDF):
+    def header(self):
+        # Define a fonte para o cabeçalho
+        self.set_font('Arial', 'B', 15)
+        
+        # Move para a direita
+        self.cell(80)
+        
+        # Imprime o título do cabeçalho
+        self.cell(30, 10, 'Relatório', 0, 0, 'C')
+        
+        # Move para a próxima linha
+        self.ln(20)
+
+# Cria o objeto PDF e define o tamanho da página
+pdf = PDF()
+pdf.add_page()
+pdf.set_font('Arial', '', 12)
+pdf.set_margins(20, 20, 20)
+
+# Percorre os arquivos da pasta "logs"
+for filename in os.listdir("logs"):
+    if filename.endswith(".jpg") or filename.endswith(".png"):
+        # Adiciona a imagem ao PDF
+        pdf.image(os.path.join("logs", filename), w=180)
+        
+        # Move para a próxima linha
+        pdf.ln(30)
+
+# Salva o PDF em disco
+pdf.output('logs/output.pdf', 'F')
