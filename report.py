@@ -3,6 +3,7 @@ import json
 import matplotlib.pyplot as plt
 import os
 from fpdf import FPDF
+import matplotlib.dates as mdates
 
 # Criar listas vazias para armazenar as informações relevantes
 dates = []
@@ -99,6 +100,7 @@ for i, resultado in enumerate(results):
 
 # Plotar o gráfico de linha
 fig, ax = plt.subplots()
+ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
 ax.plot(datas, pontuacao)
 ax.set_ylabel('Acertos')
 ax.set_xlabel('Horário')
@@ -117,7 +119,13 @@ plt.savefig('logs/timeline.png')
 plt.clf()
 
 
+# Obter a data atual
+data_atual = datetime.date.today()
 
+# Adicionar a data ao título
+titulo = 'Relatório de performance ({})'.format(data_atual.strftime('%d/%m/%Y'))
+
+# Adicionar o título ao PDF
 class PDF(FPDF):
     def header(self):
         # Define a fonte para o cabeçalho
@@ -127,7 +135,7 @@ class PDF(FPDF):
         self.cell(80)
         
         # Imprime o título do cabeçalho
-        self.cell(30, 10, 'Relatório', 0, 0, 'C')
+        self.cell(30, 10, titulo, 0, 0, 'C')
         
         # Move para a próxima linha
         self.ln(20)
