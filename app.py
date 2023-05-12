@@ -1,4 +1,5 @@
 import json
+import os
 import requests
 import logging
 import urllib
@@ -7,7 +8,6 @@ import telethon
 from telethon import TelegramClient
 import asyncio
 from telethon.tl.functions.channels import JoinChannelRequest
-import numpy as np
 import time
 import threading
 import pickle
@@ -15,8 +15,11 @@ from sklearn.preprocessing import LabelEncoder
 import json
 import re
 from datetime import datetime
+import datetime as dt
 import pytz
 import websockets
+import schedule
+from report import generate_report
 
 class Records:
     def __init__(self, id, created_at, color, roll):
@@ -36,6 +39,7 @@ stream = 0
 last_prediction = ''
 current_bet_red = 0
 current_bet_black = 0
+
 
 def read_config(file):
     with open(file, 'r') as stream:
@@ -73,7 +77,7 @@ def getBlazeData():
         game_color = [encoder.transform([record["color"]])[0] for record in reversed(data["records"][:9])]
         return game_color
     except requests.exceptions.RequestException as e:
-        log(f"Error getting data from blaze.com: {e}")
+        print(f"Error getting data from blaze.com: {e}")
 
 
 def predict(game_color):
@@ -156,12 +160,13 @@ def send_message_to_telegram_channel(text):
         message = "👨🏼‍💻 Últimas jogadas 🤖\n\n" + convert_to_emoji(colors)
     elif "Estatísticas" in text:
         message = text 
+    elif text == "/report":
+        message = "/report"    
     else:
         message = messages.get(text, "")
 
     encoded_message = urllib.parse.quote(message)
     url = "https://api.telegram.org/bot" + CHANNEL + "/sendMessage?chat_id=" + CHAT_ID + "&text=" + encoded_message
-
     try:
         resp = requests.get(url)
     except requests.exceptions.RequestException as e:
@@ -238,12 +243,25 @@ async def listenMessages():
                             date = datetime.today().strftime('%d/%m/%Y')
                             send_message_to_telegram_channel(f"📈 Estatísticas 📈\n\nVitórias: {statistics[0]}%\nDerrotas: {statistics[1]}%\nTotal de jogadas: {statistics[2]}\n\nData: {date}")
                     elif command == '/last_plays':
-                        send_message_to_telegram_channel('last_plays')        
-                    await asyncio.sleep(2)
+                        send_message_to_telegram_channel('last_plays')    
+                    elif command == '/report':
+                        try:
+                            stopStream()
+                            data_atual = dt.date.today()
+                            logs_folder = os.path.abspath("logs")
+                            file_path = os.path.join(logs_folder, f'{data_atual}.pdf')
+                            await client.send_file(CHANNEL_LINK, file_path)
+                            clear_logs_folder()
+                            stream = True
+                            startStreamInThread()
+                        except Exception as e:
+                            print(e)
+                            continue
+                    await asyncio.sleep(3)
             else:
-                log(f'Canal "{CHANNEL_LINK}" não encontrado')
+                print(f'Canal "{CHANNEL_LINK}" não encontrado')
         except Exception as e:
-            log(f"Erro ao obter informações do canal: {e}")
+            print(f"Erro ao obter informações do canal: {e}")
             return
 
 async def ws():
@@ -289,17 +307,46 @@ async def ws():
                                     await websocket.close()
                                     return
         except websockets.exceptions.ConnectionClosedError:
-            log("Connection lost. Reconnecting...")
+            print("Connection lost. Reconnecting...")
             time.sleep(5)  # wait for 5 seconds before trying to reconnect
         except Exception as e:
-            log(f"Unexpected error: {e}")
+            print(f"Unexpected error: {e}")
             break
         
 async def close_connection(websocket):
     await websocket.close()
-    
+
+def send_daily_report_wrapper():
+    message =  send_message_to_telegram_channel('/report')
+    if message is None:
+        print('Daily report sent successfully')
+        
+async def run_schedule():
+    while True:
+        schedule.run_pending()
+        await asyncio.sleep(55)
+
+def clear_logs_folder():
+    logs_folder = os.path.abspath("logs")
+    for file in os.listdir(logs_folder):
+        file_path = os.path.join(logs_folder, file)
+        try:
+            if os.path.isfile(file_path):
+                os.unlink(file_path)
+        except Exception as e:
+            print(f"Erro ao deletar o arquivo {file_path}: {e}")
+
 async def main():
+    schedule.every().day.at('23:56').do(generate_report)
+    schedule.every().day.at('16:58').do(send_daily_report_wrapper)
+
+    # # Iniciar o agendador em segundo plano
+    asyncio.create_task(run_schedule())
+
+    # Iniciar a escuta de mensagens
     await listenMessages()
+
 
 # Iniciar a execução da função main
 asyncio.run(main())
+
