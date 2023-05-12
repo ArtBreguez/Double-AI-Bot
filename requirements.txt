@@ -6,3 +6,6 @@ telethon
 ioutil
 scikit-learn==1.2.1
 websockets
+schedule
+fpdf
+matplotlib
