@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 import os
 from fpdf import FPDF
 import matplotlib.dates as mdates
-import schedule
 
 def generate_report():
     # Criar listas vazias para armazenar as informações relevantes
@@ -68,7 +67,7 @@ def generate_report():
     plt.xticks(colors)
     plt.legend()
     plt.tight_layout()
-    plt.savefig('logs/cores_previstas.png')
+    plt.savefig('logs/3.png')
     plt.clf()
 
     # Criar gráfico de resultados
@@ -78,9 +77,14 @@ def generate_report():
 
     colors = ['green', 'red']
     labels = ['Vitórias', 'Derrotas']
+    sizes = [results_count['win'], results_count['loss']]
+    total = sum(sizes)
 
-    plt.pie([results_count['win'], results_count['loss']], labels=labels, colors=colors, autopct='%1.1f%%')
-    plt.savefig('logs/win_loss_pie.png')
+    plt.pie(sizes, labels=labels, colors=colors, autopct='%1.1f%%')
+    plt.title(f'Total de Sinais Enviados: {total}')
+    plt.legend(title='Resultados:', loc='center left', bbox_to_anchor=(1, 0.5))
+
+    plt.savefig('logs/1.png')
     plt.clf()
 
     # Inicializar as variáveis para contar o número de vitórias e derrotas
@@ -104,7 +108,7 @@ def generate_report():
     fig, ax = plt.subplots()
     ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
     ax.plot(datas, pontuacao)
-    ax.set_ylabel('Acertos')
+    ax.set_ylabel('Somatório de acertos')
     ax.set_xlabel('Horário')
     ax.set_title('Acertos ao longo do tempo')
 
@@ -117,7 +121,7 @@ def generate_report():
             ax.axhline(y=pontuacao[i], color='red', alpha=0.5)
             ax.scatter(datas[i], pontuacao[i], color='red', s=100)
 
-    plt.savefig('logs/timeline.png')
+    plt.savefig('logs/2.png')
     plt.clf()
 
 
@@ -160,3 +164,4 @@ def generate_report():
     # Salva o PDF em disco
     pdf.output(f'logs/{data_atual}.pdf', 'F')
 
+generate_report()
