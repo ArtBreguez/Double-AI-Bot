@@ -338,7 +338,7 @@ def clear_logs_folder():
 
 async def main():
     schedule.every().day.at('23:56').do(generate_report)
-    schedule.every().day.at('16:58').do(send_daily_report_wrapper)
+    schedule.every().day.at('23:58').do(send_daily_report_wrapper)
 
     # # Iniciar o agendador em segundo plano
     asyncio.create_task(run_schedule())
