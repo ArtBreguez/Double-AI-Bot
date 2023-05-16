@@ -337,8 +337,8 @@ def clear_logs_folder():
             print(f"Erro ao deletar o arquivo {file_path}: {e}")
 
 async def main():
-    schedule.every().day.at('23:56').do(generate_report)
-    schedule.every().day.at('23:58').do(send_daily_report_wrapper)
+    schedule.every().day.at('02:56').do(generate_report)
+    schedule.every().day.at('02:58').do(send_daily_report_wrapper)
 
     # # Iniciar o agendador em segundo plano
     asyncio.create_task(run_schedule())
