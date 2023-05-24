@@ -1,4 +1,4 @@
-# fly.toml file generated for double-signals-room on 2023-05-15T20:43:37-03:00
+# fly.toml file generated for double-signals-room on 2023-05-15T21:07:19-03:00
 
 app = "double-signals-room"
 kill_signal = "SIGINT"

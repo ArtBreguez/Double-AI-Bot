@@ -39,7 +39,7 @@ stream = 0
 last_prediction = ''
 current_bet_red = 0
 current_bet_black = 0
-
+sp_timezone = pytz.timezone('America/Sao_Paulo')
 
 def read_config(file):
     with open(file, 'r') as stream:
@@ -142,6 +142,7 @@ def calculate_win_loss_percentage():
 
     win_percentage = round(win_count / total_count * 100, 2) if total_count > 0 else 0.0
     loss_percentage = round(loss_count / total_count * 100, 2) if total_count > 0 else 0.0
+    print(today) #remover
     return win_percentage, loss_percentage, total_count
 
 
@@ -181,7 +182,7 @@ def convert_to_emoji(game_color):
 def log(message):
     try:
         with open(LOGS, 'a') as file:
-            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            timestamp = datetime.now(sp_timezone).strftime('%Y-%m-%d %H:%M:%S')
             log_message = f'[{timestamp}] {message}'
             logging.basicConfig(filename=LOGS, level=logging.INFO)
             logging.info(log_message)

@@ -126,8 +126,7 @@ def generate_report():
 
 
     # Obter a data atual
-    data_atual = datetime.date.today()
-
+    data_atual = datetime.date.today() - datetime.timedelta(days=1)
     # Adicionar a data ao título
     titulo = 'Relatório de performance ({})'.format(data_atual.strftime('%d/%m/%Y'))
 
@@ -163,3 +162,5 @@ def generate_report():
 
     # Salva o PDF em disco
     pdf.output(f'logs/{data_atual}.pdf', 'F')
+
+generate_report()
