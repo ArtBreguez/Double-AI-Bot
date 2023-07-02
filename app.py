@@ -153,6 +153,8 @@ def send_message_to_telegram_channel(text):
         'white': "A próxima jogada é ⚪",
         'help': "👨🏼‍💻 Comandos disponíveis 🤖\n\n/start_stream - Inicia o stream de jogadas 🎰\n/stop_stream - Para o stream de jogadas 🛑\n/statistics - Exibe as estatísticas de vitória/derrota 📈\n/last_plays - Exibe as últimas jogadas 🕹️",
         None: "👨🏼‍💻 Não há novas jogadas 🤖",
+        'stream_started': "👨🏼‍💻 Stream iniciado 🤖",
+        'stream_stopped': "👨🏼‍💻 Stream parado 🤖"
     }
 
     if text == "last_plays":
@@ -233,8 +235,10 @@ async def listenMessages():
                     if command == '/start_stream' and not stream:
                         stream = True
                         startStreamInThread()
+                        send_message_to_telegram_channel('stream_started')
                     elif command == '/stop_stream' and stream:
                         stopStream()
+                        send_message_to_telegram_channel('stream_stopped')
                     elif command == '/help':
                         send_message_to_telegram_channel('help')
                     elif command == '/statistics':

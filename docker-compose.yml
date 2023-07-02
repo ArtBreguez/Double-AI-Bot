@@ -3,7 +3,7 @@ services:
   double-ai:
     container_name: double-ai
     build: .
-    image: artbreguez/adouble-ai
+    image: artbreguez/double-ai
     restart: always
     volumes:
-      - ./logs:/app/logs
+      - ./logs:/telegram-api/logs

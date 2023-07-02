@@ -13,7 +13,7 @@ O projeto de um bot de inteligência artificial ajudante de apostas do jogo Blaz
 - Estatísticas sobre as previsões feitas
 - Envia as ultimas jogadas que sairam
 - Prediz a proxima jogada de maneira unitaria
-
+- Envio do relatório de performance ao fim do dia
 
 ## Build && Deploy
 
@@ -22,15 +22,6 @@ Para fazer o deploy desse projeto rode
 ```bash
   docker compose up -d --build
 ```
-
-
-## Roadmap
-
-- Adicionar mais estatísticas
-
-- Criar landing page
-
-
 
 ## Autores
 
