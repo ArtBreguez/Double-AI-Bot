@@ -171,7 +171,7 @@ def send_message_to_telegram_channel(text):
     try:
         resp = requests.get(url)
     except requests.exceptions.RequestException as e:
-        logging.error("Error sending message to telegram channel: " + str(e))
+        print("Error sending message to telegram channel: " + str(e))
         return
 
 
@@ -186,8 +186,9 @@ def log(message):
             log_message = f'[{timestamp}] {message}'
             logging.basicConfig(filename=LOGS, level=logging.INFO)
             logging.info(log_message)
+            print(log_message)
     except Exception as e:
-        logging.error('Error writing to log file:', e)
+        print('Error writing to log file:', e)
 
 
 def getMachineGuess():
