@@ -90,7 +90,7 @@ def predict(game_color):
     last_prediction = action[0]
     
     if last_prediction == 'red':
-        if float(current_bet_black) >= (4 * float(current_bet_red)):
+        if float(current_bet_black) >= (3 * float(current_bet_red)):
             current_bet_black = 0
             current_bet_red = 0
             return last_prediction
@@ -98,7 +98,7 @@ def predict(game_color):
             last_prediction = 'none'
             return 'none'
     if last_prediction == 'black':
-        if float(current_bet_red) >= (4 * float(current_bet_black)):
+        if float(current_bet_red) >= (3 * float(current_bet_black)):
             current_bet_black = 0
             current_bet_red = 0
             return last_prediction
@@ -339,8 +339,8 @@ def clear_logs_folder():
             print(f"Erro ao deletar o arquivo {file_path}: {e}")
 
 async def main():
-    schedule.every().day.at('02:56').do(generate_report)
-    schedule.every().day.at('02:58').do(send_daily_report_wrapper)
+    schedule.every().day.at('23:56').do(generate_report)
+    schedule.every().day.at('23:58').do(send_daily_report_wrapper)
 
     # # Iniciar o agendador em segundo plano
     asyncio.create_task(run_schedule())
