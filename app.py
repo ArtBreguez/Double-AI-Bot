@@ -21,7 +21,7 @@ import websockets
 import schedule
 from report import generate_report
 
-class Records:
+class Records: 
     def __init__(self, id, created_at, color, roll):
         self.id = id
         self.created_at = created_at
@@ -35,11 +35,14 @@ class TotalPages:
 
 game_color = []	
 previous_payload = None
-stream = 0
+stream = False
 last_prediction = ''
 current_bet_red = 0
 current_bet_black = 0
 sp_timezone = pytz.timezone('America/Sao_Paulo')
+stop_event = threading.Event()
+thread = None
+
 
 def read_config(file):
     with open(file, 'r') as stream:
@@ -90,7 +93,7 @@ def predict(game_color):
     last_prediction = action[0]
     
     if last_prediction == 'red':
-        if float(current_bet_black) >= (3 * float(current_bet_red)):
+        if float(current_bet_black) >= (4 * float(current_bet_red)):
             current_bet_black = 0
             current_bet_red = 0
             return last_prediction
@@ -98,7 +101,7 @@ def predict(game_color):
             last_prediction = 'none'
             return 'none'
     if last_prediction == 'black':
-        if float(current_bet_red) >= (3 * float(current_bet_black)):
+        if float(current_bet_red) >= (4 * float(current_bet_black)):
             current_bet_black = 0
             current_bet_red = 0
             return last_prediction
@@ -192,28 +195,30 @@ def log(message):
     except Exception as e:
         print('Error writing to log file:', e)
 
-
-def getMachineGuess():
-    data = getBlazeData()
-    if data is None:
-        return send_message_to_telegram_channel(None)
-    return send_message_to_telegram_channel(predict(data))
-
 def startStream():
-    global stream
-    while stream:
+    while not stop_event.is_set():
         data = getBlazeData()
+        print(data)
         if data:
             checkWin(data)
             send_message_to_telegram_channel(predict(data))
         time.sleep(3)
 
 def stopStream():
-    global stream
+    stop_event.set()
+    if thread:
+        thread.join()
     stream = False
 
 def startStreamInThread():
-    threading.Thread(target=startStream).start()
+    global thread
+    if thread and thread.is_alive():
+        return thread  # Se a thread já estiver em execução, retorna a instância existente
+    else:
+        thread = threading.Thread(target=startStream)
+        thread.start()
+        stream = True
+        return thread
 
 async def listenMessages():
     # Caminho para o arquivo com o número de telefone e o código de autenticação
