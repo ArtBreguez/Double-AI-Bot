@@ -253,7 +253,7 @@ async def listenMessages():
                     elif command == '/report':
                         try:
                             stopStream()
-                            data_atual = dt.date.today()
+                            data_atual = dt.date.today() - dt.timedelta(days=1)
                             logs_folder = os.path.abspath("logs")
                             file_path = os.path.join(logs_folder, f'{data_atual}.pdf')
                             await client.send_file(CHANNEL_LINK, file_path)
@@ -343,8 +343,8 @@ def clear_logs_folder():
             print(f"Erro ao deletar o arquivo {file_path}: {e}")
 
 async def main():
-    schedule.every().day.at('23:56').do(generate_report)
-    schedule.every().day.at('23:58').do(send_daily_report_wrapper)
+    schedule.every().day.at('02:56').do(generate_report)
+    schedule.every().day.at('02:58').do(send_daily_report_wrapper)
 
     # # Iniciar o agendador em segundo plano
     asyncio.create_task(run_schedule())
