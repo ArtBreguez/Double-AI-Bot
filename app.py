@@ -93,7 +93,7 @@ def predict(game_color):
     last_prediction = action[0]
     
     if last_prediction == 'red':
-        if float(current_bet_black) >= (4 * float(current_bet_red)):
+        if float(current_bet_black) >= (5 * float(current_bet_red)):
             current_bet_black = 0
             current_bet_red = 0
             return last_prediction
@@ -101,7 +101,7 @@ def predict(game_color):
             last_prediction = 'none'
             return 'none'
     if last_prediction == 'black':
-        if float(current_bet_red) >= (4 * float(current_bet_black)):
+        if float(current_bet_red) >= (5 * float(current_bet_black)):
             current_bet_black = 0
             current_bet_red = 0
             return last_prediction
@@ -235,7 +235,6 @@ async def listenMessages():
                     global stream
                     command = message.message.strip().lower()
                     if command == '/start_stream' and not stream:
-                        stream = True
                         startStreamInThread()
                         send_message_to_telegram_channel('stream_started')
                     elif command == '/stop_stream' and stream:
@@ -260,7 +259,6 @@ async def listenMessages():
                             file_path = os.path.join(logs_folder, f'{data_atual}.pdf')
                             await client.send_file(CHANNEL_LINK, file_path)
                             clear_logs_folder()
-                            stream = True
                             startStreamInThread()
                         except Exception as e:
                             print(e)
