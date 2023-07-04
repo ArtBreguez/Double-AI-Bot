@@ -145,7 +145,6 @@ def calculate_win_loss_percentage():
 
     win_percentage = round(win_count / total_count * 100, 2) if total_count > 0 else 0.0
     loss_percentage = round(loss_count / total_count * 100, 2) if total_count > 0 else 0.0
-    print(today) #remover
     return win_percentage, loss_percentage, total_count
 
 
@@ -191,14 +190,12 @@ def log(message):
             log_message = f'[{timestamp}] {message}'
             logging.basicConfig(filename=LOGS, level=logging.INFO)
             logging.info(log_message)
-            print(log_message)
     except Exception as e:
         print('Error writing to log file:', e)
 
 def startStream():
     while not stop_event.is_set():
         data = getBlazeData()
-        print(data)
         if data:
             checkWin(data)
             send_message_to_telegram_channel(predict(data))
