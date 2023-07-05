@@ -1,6 +1,6 @@
 <div align="center">
 
-![Logo](https://camo.githubusercontent.com/a495c1e96b988850e562d5b7dafbf41ae3a4094ef7d64791cdab259d6869c2b7/68747470733a2f2f626c617a652e636f6d2f696d616765732f6c6f676f2d69636f6e2e706e67)
+<a href="https://ibb.co/M1C5mWK"><img src="https://i.ibb.co/bvKRkqY/Captura-de-Tela-2023-07-05-a-s-16-38-59.png" alt="Captura-de-Tela-2023-07-05-a-s-16-38-59" border="0"></a>
   
 # Double AI Signals
 </div>
