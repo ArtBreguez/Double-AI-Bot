@@ -206,6 +206,8 @@ def stopStream():
     if thread:
         thread.join()
     stream = False
+    stop_event.clear()
+    return
 
 def startStreamInThread():
     global thread
@@ -253,13 +255,13 @@ async def listenMessages():
                         send_message_to_telegram_channel('last_plays')    
                     elif command == '/report':
                         try:
-                            stopStream()
+                            # stopStream()
                             data_atual = dt.date.today() - dt.timedelta(days=1)
                             logs_folder = os.path.abspath("logs")
                             file_path = os.path.join(logs_folder, f'{data_atual}.pdf')
                             await client.send_file(CHANNEL_LINK, file_path)
                             clear_logs_folder()
-                            startStreamInThread()
+                            # startStreamInThread()
                         except Exception as e:
                             print(e)
                             continue
