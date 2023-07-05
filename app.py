@@ -205,12 +205,14 @@ def stopStream():
     stop_event.set()
     if thread:
         thread.join()
+    global stream    
     stream = False
     stop_event.clear()
     return
 
 def startStreamInThread():
     global thread
+    global stream    
     if thread and thread.is_alive():
         return thread  # Se a thread já estiver em execução, retorna a instância existente
     else:
